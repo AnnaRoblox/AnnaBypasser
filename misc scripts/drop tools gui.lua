@@ -1,4 +1,4 @@
--- only usful for tools with collision
+-- Only useful for tools with collision
 local Players = game:GetService('Players')
 local LocalPlayer = Players.LocalPlayer
 local UserInputService = game:GetService('UserInputService')
@@ -10,7 +10,7 @@ local DropButton = Instance.new('TextButton')
 local PickUpButton = Instance.new('TextButton')
 local CloseButton = Instance.new('TextButton')
 
-ScreenGui.Parent = LocalPlayer:WaitForChild('PlayerGui')
+ScreenGui.Parent = game.CoreGui
 
 -- Frame properties
 MainFrame.Size = UDim2.new(0, 250, 0, 200)
@@ -84,44 +84,69 @@ end)
 -- Store handles and tools
 local storedTools = {}
 
--- Button functionality
+-- Store equipped tools temporarily
+local equippedTools = {}
+
+-- Drop tools one at a time and re-equip them
 local function dropTool()
     local character = LocalPlayer.Character
+    character.HumanoidRootPart.Anchored = true
     if character then
+        equippedTools = {} -- Reset equipped tools list
+        local tools = {}
+
+        -- Collect all equipped tools
         for _, tool in pairs(character:GetChildren()) do
             if tool:IsA('Tool') then
+                table.insert(tools, tool)
+                table.insert(equippedTools, tool) -- Keep track of equipped tools
+            end
+        end
+
+        -- Drop tools sequentially
+        for _, tool in ipairs(tools) do
+            task.spawn(function()
                 local handle = tool:FindFirstChild('Handle')
                 if handle then
-                    -- Store the tool and handle in the table
                     storedTools[tool] = handle
 
-                    -- Set handle's parent to Workspace and position it
-                    handle.Parent = character 
-                    --local randomOffset = Vector3.new(math.random(-5, 5), 1, math.random(-5, 5))
-                    --handle.Position = character.HumanoidRootPart.Position + randomOffset
-                     handle.Anchored = true
-                     handle.Anchored = false
-                    tool.Parent = game:GetService("Players").LocalPlayer.Backpack
-               tool.Parent = character
+                    -- Drop the tool
+                    handle.Parent = character
+                    handle.Anchored = true
+                    handle.Anchored = false
+                    tool.Parent = LocalPlayer.Backpack
+                end
+            end)
+            task.wait(0) -- Add a delay before processing the next tool
+        end
+
+        -- Re-equip tools after dropping
+        
+            for _, tool in ipairs(equippedTools) do
+                if tool.Parent == LocalPlayer.Backpack then
+                    task.wait(0)
+                    tool.Parent = character -- Re-equip tool
+                    
+                    character.HumanoidRootPart.Anchored = false
                 end
             end
         end
-    end
-end
+        end
+   
 
+-- Pick up tools
 local function pickUpTool()
     local character = LocalPlayer.Character
-    for tool, handle in pairs(storedTools) do
-        if handle and handle.Parent == character then
-            -- Check if the handle is within a certain distance to pick up
-            if (handle.Position - character.HumanoidRootPart.Position).magnitude <= 50 then
-                -- Restore the tool's parent and handle
-                handle.Parent = tool
-                tool.Parent = character
-         
+    if character then
+        for tool, handle in pairs(storedTools) do
+            if handle and handle.Parent == character then
+                if (handle.Position - character.HumanoidRootPart.Position).magnitude <= 50 then
+                    handle.Parent = tool
+                    tool.Parent = character
 
-                -- Remove the tool from the stored table
-                storedTools[tool] = nil
+                    -- Remove the tool from the stored table
+                    storedTools[tool] = nil
+                end
             end
         end
     end
